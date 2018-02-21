@@ -1,0 +1,30 @@
+- name: Install PHP Packages
+  sudo: yes
+  yum: pkg={{ item }} state=latest
+  with_items:
+    - php71
+    - php71-fpm
+    - php71-gd
+    - php71-mbstring
+    - php71-mysqlnd
+    - php71-opcache
+    - php71-pdo
+    - php71-pecl-apcu
+
+- name: Install PHP-Pecl Packages
+  sudo: yes
+  yum: pkg={{ item }} state=latest
+  with_items: 
+    - php71-pecl-memcached
+    - php71-pecl-redis
+    - php71-pecl-zip
+    - php71-pecl-xdebug
+
+  #Add templates
+- name: Change to custom php-fpm config
+  sudo: yes
+  template: src=www.conf.tpl dest=/etc/php-fpm-7.1.d/www.conf
+
+- service:
+    name: php-fpm
+    enabled: yes
