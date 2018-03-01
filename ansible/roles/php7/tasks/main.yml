@@ -26,5 +26,9 @@
   template: src=www.conf.tpl dest=/etc/php-fpm-7.1.d/www.conf
 
 - service:
-    name: php-fpm
+    name: php-fpm-7.1
     enabled: yes
+
+- service:
+    name: php-fpm
+    enabled: no

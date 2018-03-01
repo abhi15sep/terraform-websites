@@ -23,6 +23,18 @@
   sudo: yes
   template: src=com.stevedeveaux.conf.tpl dest=/etc/nginx/conf.d/com.stevedeveaux.conf
 
+- name: Add beyond-unity.co.uk vhost
+  sudo: yes
+  template: src=co.uk.beyondunity.conf.tpl dest=/etc/nginx/conf.d/co.uk.beyondunity.conf
+
+#- name: Add crazybulker.co.uk vhost
+#  sudo: yes
+#  template: src=co.uk.crazybulker.conf.tpl dest=/etc/nginx/conf.d/co.uk.crazybulker.conf
+
+- name: Add the other crud
+  sudo: yes
+  template: src=virtual.conf.tpl dest=/etc/nginx/conf.d/virtual.conf
+
 - service:
     name: nginx
     enabled: yes

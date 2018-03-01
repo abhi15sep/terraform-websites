@@ -45,22 +45,98 @@ resource "aws_subnet" "public_a" {
   }
 }
 
+# Create a public subnet to launch our bastion into
+resource "aws_subnet" "public_b" {
+  vpc_id                  = "${aws_vpc.default.id}"
+  availability_zone       = "eu-west-2b"
+  cidr_block              = "10.0.11.0/24"
+  map_public_ip_on_launch = false
+
+  tags {
+        Name = "Public Subnet B"
+  }
+}
+
+resource "aws_subnet" "private_a" {
+  vpc_id                  = "${aws_vpc.default.id}"
+  availability_zone       = "eu-west-2a"
+  cidr_block              = "10.0.130.0/24"
+  map_public_ip_on_launch = false
+
+  tags {
+        Name = "Private Subnet A"
+  }
+}
+
+# Create a public subnet to launch our bastion into
+resource "aws_subnet" "private_b" {
+  vpc_id                  = "${aws_vpc.default.id}"
+  availability_zone       = "eu-west-2b"
+  cidr_block              = "10.0.140.0/24"
+  map_public_ip_on_launch = false
+
+  tags {
+        Name = "Private Subnet B"
+  }
+}
+
+resource "aws_db_subnet_group" "default" {
+  name       = "main"
+  subnet_ids = ["${aws_subnet.private_a.id}", "${aws_subnet.private_b.id}"]
+
+  tags {
+    Name = "My Private DB subnet group"
+  }
+}
+
 resource "aws_route_table_association" "a" {
   subnet_id      = "${aws_subnet.public_a.id}"
   route_table_id = "${aws_vpc.default.main_route_table_id}"
 }
 
-resource "aws_security_group" "ssh_http" {
-  name        = "allow_ssh_http"
-  description = "Allow SSH & HTTP traffic"
-  vpc_id      = "${aws_vpc.default.id}"
+resource "aws_route_table_association" "b" {
+  subnet_id      = "${aws_subnet.public_b.id}"
+  route_table_id = "${aws_vpc.default.main_route_table_id}"
+}
 
-  ingress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+resource "aws_nat_gateway" "ngw" {
+  allocation_id = "${aws_eip.nat.id}"
+  subnet_id     = "${aws_subnet.public_a.id}"
+
+  tags {
+    Name = "gw NAT"
   }
+}
+
+resource "aws_route_table" "private" {
+  vpc_id = "${aws_vpc.default.id}"
+
+  tags {
+    Name = "terraform private"
+  }
+}
+
+resource "aws_route" "private" {
+  route_table_id            = "${aws_route_table.private.id}"
+  destination_cidr_block    = "0.0.0.0/0"
+  nat_gateway_id = "${aws_nat_gateway.ngw.id}"
+}
+
+resource "aws_route_table_association" "priv_a" {
+  subnet_id      = "${aws_subnet.private_a.id}"
+  route_table_id = "${aws_route_table.private.id}"
+}
+
+resource "aws_route_table_association" "priv_b" {
+  subnet_id      = "${aws_subnet.private_b.id}"
+  route_table_id = "${aws_route_table.private.id}"
+}
+
+
+resource "aws_security_group" "bastion_sg" {
+  name        = "bastion_sg"
+  description = "Allow SSH traffic ONLY"
+  vpc_id      = "${aws_vpc.default.id}"
 
   ingress {
     from_port   = 22
@@ -70,9 +146,114 @@ resource "aws_security_group" "ssh_http" {
   }
 
   tags {
-    Name = "ssh,http"
+    Name = "bastion_sg"
   }
 }
+
+resource "aws_security_group" "lb_sg" {
+  name        = "lb_sg"
+  description = "Allow Web traffic ONLY"
+  vpc_id      = "${aws_vpc.default.id}"
+
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 65535
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags {
+    Name = "lb_sg"
+  }
+}
+
+resource "aws_security_group" "web" {
+  name        = "web"
+  description = "Allow HTTP & SSH traffic"
+  vpc_id      = "${aws_vpc.default.id}"
+
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    security_groups = ["${aws_security_group.lb_sg.id}"]
+  }
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.0.0/16"]
+  }
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    security_groups = ["${aws_security_group.bastion_sg.id}"]
+  }
+
+  tags {
+    Name = "web"
+  }
+}
+
+resource "aws_security_group" "db_sg" {
+  name        = "db_sg"
+  description = "Allow MySQL traffic ONLY"
+  vpc_id      = "${aws_vpc.default.id}"
+
+  ingress {
+    from_port   = 3306
+    to_port     = 3306
+    protocol    = "tcp"
+    security_groups = ["${aws_security_group.web.id}"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 65535
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags {
+    Name = "lb_sg"
+  }
+}
+
+data "aws_ami" "bastion" {
+  most_recent = true
+
+  filter {
+    name   = "owner-alias"
+    values = ["amazon"]
+  }
+
+  filter {
+    name   = "name"
+    values = ["amzn-ami-hvm*"]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+
+  filter {
+    name   = "root-device-type"
+    values = ["ebs"]
+  }
+
+}
+
 
 data "aws_ami" "packer" {
   most_recent = true
@@ -89,17 +270,45 @@ data "aws_ami" "packer" {
 
 }
 
+resource "aws_eip" "nat" {
+  vpc         = true
+}
+
+
+resource "aws_instance" "bastion" {
+  ami           = "${data.aws_ami.bastion.id}"
+  instance_type = "t2.micro"
+  key_name = "bobby-key"
+  vpc_security_group_ids = ["${aws_security_group.bastion_sg.id}", "sg-040f213940253fefc"]
+  subnet_id = "${aws_subnet.public_a.id}"
+
+  tags {
+    Name = "Bastion"
+  }
+}
+
 resource "aws_instance" "web" {
   ami           = "${data.aws_ami.packer.id}"
   instance_type = "t2.small"
   key_name = "bobby-key"
-  vpc_security_group_ids = ["${aws_security_group.ssh_http.id}"]
-  subnet_id = "${aws_subnet.public_a.id}"
+  vpc_security_group_ids = ["${aws_security_group.web.id}", "sg-040f213940253fefc"]
+  subnet_id = "${aws_subnet.private_a.id}"
 
   tags {
-    Name = "Packer build"
+    Name = "Web"
   }
 }
+
+resource "aws_eip" "bastionip" {
+  vpc         = true
+  depends_on  = ["aws_internet_gateway.default"]
+}
+
+resource "aws_eip_association" "eip_bastion_assoc" {
+  instance_id   = "${aws_instance.bastion.id}"
+  allocation_id = "${aws_eip.bastionip.id}"
+}
+
 
 data "aws_ebs_volume" "ebs_volume" {
   most_recent = true
@@ -127,6 +336,8 @@ resource "aws_eip" "elasticip" {
   depends_on  = ["aws_internet_gateway.default"]
 }
 
+
+
 resource "aws_eip_association" "eip_assoc" {
   instance_id   = "${aws_instance.web.id}"
   allocation_id = "${aws_eip.elasticip.id}"
@@ -137,9 +348,59 @@ resource "aws_eip_association" "eip_assoc" {
     ]
     
     connection {
-      host     = "${self.public_ip}"
+      bastion_host = "${aws_eip.bastionip.public_ip}"
+      host     = "${aws_instance.web.private_ip}"
       user     = "ec2-user"
       timeout  = "5m"
     }
   }
+}
+
+# Create a new load balancer
+resource "aws_lb" "web" {
+  name            = "test-lb-tf"
+  internal        = false
+  security_groups = ["${aws_security_group.lb_sg.id}"]
+  subnets         = ["${aws_subnet.public_a.id}","${aws_subnet.public_b.id}"]
+
+  tags {
+    Name = "lb"
+  }
+}
+
+resource "aws_lb_target_group" "web" {
+  name     = "tf-example-lb-tg"
+  port     = 80
+  protocol = "HTTP"
+  vpc_id   = "${aws_vpc.default.id}"
+}
+
+resource "aws_lb_target_group_attachment" "web" {
+  target_group_arn = "${aws_lb_target_group.web.arn}"
+  target_id        = "${aws_instance.web.id}"
+  port             = 80
+}
+
+resource "aws_lb_listener" "web" {
+  load_balancer_arn = "${aws_lb.web.arn}"
+  port              = "80"
+  protocol          = "HTTP"
+
+  default_action {
+    target_group_arn = "${aws_lb_target_group.web.arn}"
+    type             = "forward"
+  }
+}
+
+resource "aws_db_instance" "default" {
+  storage_type         = "gp2"
+  instance_class       = "db.t2.micro"
+  username             = "bobbyjason"
+  vpc_security_group_ids = ["${aws_security_group.db_sg.id}"]
+  password             = "Bcr-wHs-DFm-8nu"
+  db_subnet_group_name = "${aws_db_subnet_group.default.name}"
+  parameter_group_name = "default.mysql5.6"
+  snapshot_identifier  = "bobbyjason"
+  skip_final_snapshot  = true
+  final_snapshot_identifier = "deletemeplz"
 }

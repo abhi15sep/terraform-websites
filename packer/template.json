@@ -7,7 +7,9 @@
       "source_ami": "ami-403e2524",
       "instance_type": "t2.micro",
       "ssh_username": "ec2-user",
-      "ami_name": "packer-{{timestamp}}"
+      "ami_name": "packer-{{timestamp}}",
+      "subnet_id" : "subnet-044e880037737936a",
+      "associate_public_ip_address": true
     }
   ],
   "provisioners": [

@@ -1,7 +1,7 @@
 [www]
 
-user = apache
-group = apache
+user = nginx
+group = nginx
 listen = /var/run/php-fpm/www.sock
 listen.mode = 0660
 
