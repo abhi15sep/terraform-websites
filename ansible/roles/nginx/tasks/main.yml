@@ -2,7 +2,7 @@
   sudo: yes
   yum: pkg=nginx state=latest
 
-#Add templates
+# Add templates
 - name: Change to custom Nginx conf
   sudo: yes
   template: src=nginx.conf.tpl dest=/etc/nginx/nginx.conf
@@ -27,9 +27,9 @@
   sudo: yes
   template: src=co.uk.beyondunity.conf.tpl dest=/etc/nginx/conf.d/co.uk.beyondunity.conf
 
-#- name: Add crazybulker.co.uk vhost
-#  sudo: yes
-#  template: src=co.uk.crazybulker.conf.tpl dest=/etc/nginx/conf.d/co.uk.crazybulker.conf
+- name: Add crazybulker.co.uk vhost
+  sudo: yes
+  template: src=co.uk.crazybulker.conf.tpl dest=/etc/nginx/conf.d/co.uk.crazybulker.conf
 
 - name: Add the other crud
   sudo: yes
@@ -38,3 +38,29 @@
 - service:
     name: nginx
     enabled: yes
+
+- file:
+    dest: /var/lib/php/7.1/session
+    owner: nginx
+    group: nginx
+    recurse: yes
+
+- file:
+    dest: /var/lib/php/7.1/wsdlcache
+    owner: nginx
+    group: nginx
+    recurse: yes
+
+- file:
+    dest: /var/lib/php/7.1/opcache
+    owner: nginx
+    group: nginx
+    recurse: yes
+
+
+- name: Mount up device by label
+  mount:
+    path: /srv
+    src: /dev/xvdh
+    fstype: ext4
+    state: present

@@ -5,7 +5,10 @@
 user nginx;
 worker_processes auto;
 error_log /var/log/nginx/error.log;
-pid /run/nginx.pid;
+pid /var/run/nginx.pid;
+
+# Load dynamic modules. See /usr/share/doc/nginx/README.dynamic.
+include /usr/share/nginx/modules/*.conf;
 
 events {
     worker_connections 1024;
@@ -24,9 +27,6 @@ http {
     keepalive_timeout   65;
     types_hash_max_size 2048;
 
-    server_names_hash_bucket_size 128;
-    server_names_hash_max_size 128;
-
     include             /etc/nginx/mime.types;
     default_type        application/octet-stream;
 
@@ -34,5 +34,7 @@ http {
     # See http://nginx.org/en/docs/ngx_core_module.html#include
     # for more information.
     include /etc/nginx/conf.d/*.conf;
+
+    index   index.html index.htm;
+
 }
-daemon off;

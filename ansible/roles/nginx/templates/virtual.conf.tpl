@@ -11,9 +11,6 @@ server {
         try_files $uri /index.php?$args;
     }
 
-    # Add trailing slash to */wp-admin requests.
-    rewrite /wp-admin$ $scheme://$host$uri/ permanent;
-
     # Directives to send expires headers and turn off 404 error logging.
     location ~* ^.+\.(ogg|ogv|svg|svgz|eot|otf|woff|mp4|ttf|rss|atom|jpg|jpeg|gif|png|ico|zip|tgz|gz|rar|bz2|doc|xls|exe|ppt|tar|mid|midi|wav|bmp|rtf)$ {
        access_log off; log_not_found off; expires max;
@@ -29,6 +26,11 @@ server {
 server {
     listen       80;
     server_name  wedding.deveaux.co.uk;
+
+    if ($http_x_forwarded_proto = 'http') {            
+        return 301 https://$server_name$request_uri;
+    }
+
     root   /srv/dvosites/public_html;
     location / {
         try_files $uri  /index.php?$args;

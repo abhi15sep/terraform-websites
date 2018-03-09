@@ -162,6 +162,13 @@ resource "aws_security_group" "lb_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
   egress {
     from_port   = 0
     to_port     = 65535
@@ -287,17 +294,24 @@ resource "aws_instance" "bastion" {
   }
 }
 
+resource "template_file" "disk_userdata" {
+    template = "${file("scripts/mount.sh")}"
+}
+
 resource "aws_instance" "web" {
   ami           = "${data.aws_ami.packer.id}"
   instance_type = "t2.small"
   key_name = "bobby-key"
   vpc_security_group_ids = ["${aws_security_group.web.id}", "sg-040f213940253fefc"]
   subnet_id = "${aws_subnet.private_a.id}"
+  user_data     = "${template_file.disk_userdata.rendered}"
 
   tags {
     Name = "Web"
   }
 }
+
+
 
 resource "aws_eip" "bastionip" {
   vpc         = true
@@ -331,30 +345,7 @@ resource "aws_volume_attachment" "ebs_att" {
   skip_destroy = true
 }
 
-resource "aws_eip" "elasticip" {
-  vpc         = true
-  depends_on  = ["aws_internet_gateway.default"]
-}
 
-
-
-resource "aws_eip_association" "eip_assoc" {
-  instance_id   = "${aws_instance.web.id}"
-  allocation_id = "${aws_eip.elasticip.id}"
-
-  provisioner "remote-exec" {
-    inline = [
-      "sudo mount /dev/xvdh /srv"
-    ]
-    
-    connection {
-      bastion_host = "${aws_eip.bastionip.public_ip}"
-      host     = "${aws_instance.web.private_ip}"
-      user     = "ec2-user"
-      timeout  = "5m"
-    }
-  }
-}
 
 # Create a new load balancer
 resource "aws_lb" "web" {
@@ -385,6 +376,19 @@ resource "aws_lb_listener" "web" {
   load_balancer_arn = "${aws_lb.web.arn}"
   port              = "80"
   protocol          = "HTTP"
+
+  default_action {
+    target_group_arn = "${aws_lb_target_group.web.arn}"
+    type             = "forward"
+  }
+}
+
+resource "aws_lb_listener" "web_ssl" {
+  load_balancer_arn = "${aws_lb.web.arn}"
+  port              = "443"
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-2016-08"
+  certificate_arn   = "arn:aws:acm:eu-west-2:696293867939:certificate/cb624390-416f-4d14-821d-1646932241a3"
 
   default_action {
     target_group_arn = "${aws_lb_target_group.web.arn}"
