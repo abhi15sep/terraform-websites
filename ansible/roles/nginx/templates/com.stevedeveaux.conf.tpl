@@ -1,7 +1,7 @@
 server
 {
     listen      80;
-    server_name stevedeveaux.com;
+    server_name stevedeveaux.com www.stevedeveaux.com;
     root   		/srv/stevedeveaux;
     gzip 		on;
     gunzip 		on;
