@@ -23,6 +23,11 @@
   sudo: yes
   template: src=com.stevedeveaux.conf.tpl dest=/etc/nginx/conf.d/com.stevedeveaux.conf
 
+- name: Add Whitetreehr.co.uk vhost
+  sudo: yes
+  template: src=co.uk.whitetreehr.conf.tpl dest=/etc/nginx/conf.d/co.uk.whitetreehr.conf
+
+
 - name: Add beyond-unity.co.uk vhost
   sudo: yes
   template: src=co.uk.beyondunity.conf.tpl dest=/etc/nginx/conf.d/co.uk.beyondunity.conf

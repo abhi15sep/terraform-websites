@@ -25,7 +25,8 @@
       "playbook_file": "./ansible/playbook.yml",
       "role_paths": [
           "./ansible/roles/php7",
-          "./ansible/roles/nginx"
+          "./ansible/roles/nginx",
+          "./ansible/roles/server"
       ]
     }
   ]
